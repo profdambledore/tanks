@@ -1,5 +1,7 @@
-class BaseTank {
+class BaseTank {	
 	constructor(scene, x, y, texture, frameID) {
+		var damageCount;
+		var damageMax;
 		this.scene = scene;
 		this.shadow = scene.physics.add.sprite(x, y, texture, ['shadow']);
 		this.hull = scene.physics.add.sprite(x, y, texture, frameID);
@@ -12,22 +14,66 @@ class BaseTank {
 		this.shadow.x = this.turret.x = this.hull.x
 		this.shadow.y = this.turret.y = this.hull.y
 	}
+	damage() {
+		
+	}
+	burn() {
+		this.turret.setVisible(false);
+		this.hull.setVelocity(0);
+		this.hull.body.immovable = true;
+	}
+	isDestroyed() {
+		if (this.damageCount >= this.damageMax) {
+			return true;
+		}
+	}
+	enableCollision(destructLayer, wallsLayer) {
+		this.scene.physics.add.collider(this.hull, destructLayer);
+		this.scene.physics.add.collider(this.hull, wallsLayer);
+	}
 }
 
 class EnemyTank extends BaseTank{
 	constructor(scene, x, y, texture, frameID, player) {
 		super(scene, x, y, texture, frameID);
+		this.damageCount = 0;
+		this.damageMax = 2;
 		this.player = player;
 		this.hull.angle = Phaser.Math.RND.angle();
+		this.scene.physics.velocityFromRotation(this.hull.rotation, 100, this.hull.body.velocity);
 	}
 	update() {
 		super.update();
 		this.turret.rotation = Phaser.Math.Angle.Between(this.hull.x, this.hull.y, this.player.hull.x, this.player.hull.y);
+		//this.shadow.rotation = this.hull.rotation = Math.atan2(this.hull.body.velocity.y, this.hull.body.velocity.x);
+		if (Phaser.Math.Distance.Between(this.hull.x, this.hull.y, this.player.hull.x, this.player.hull.y) < 300) {
+			var bullet = this.bullets.get(this.turret.x, this.turret.y);
+			if (bullet) {
+				fireBullet.call(this.scene, bullet, this.turret.rotation, this.player);
+			}
+		}
+	}
+	setBullets(bullets) {
+		this.bullets = bullets;
+		
+	}
+	damage() {
+		this.damageCount++;
+		console.log(this.damageCount);
+		if (this.damageCount >= this.damageMax) {
+			this.turret.destroy();
+			this.hull.destroy();
+		}
+		else if (this.damageCount == this.damageMax - 1 ) {
+			this.burn();
+		}
 	}
 }
 class PlayerTank extends BaseTank{
 	constructor(scene, x, y, texture, frameID) {
 		super(scene, x, y, texture, frameID)
+		this.damageCount = 0;
+		this.damageMax = 200;
 		this.scene = scene;
 		this.currentSpeed = 0;
 		this.keys = scene.input.keyboard.addKeys(
@@ -85,5 +131,13 @@ class PlayerTank extends BaseTank{
 			}
 		}
 		this.scene.physics.velocityFromRotation(this.hull.rotation, this.currentSpeed, this.hull.body.velocity);
+		const worldPoint = this.scene.input.activePointer.positionToCamera(this.scene.cameras.main);
+		this.turret.rotation = Phaser.Math.Angle.Between(this.turret.x, this.turret.y, worldPoint.x, worldPoint.y);
+	}
+	damage() {
+		this.damageCount++;
+		if (this.damageCount >= this.damageMax) {
+			player.burn();
+		}
 	}
 }
